@@ -38,6 +38,12 @@ var Walk = &cli.Command{
 			EnvVars: []string{"VISOR_WALK_TASKS"},
 		},
 		&cli.StringFlag{
+			Name:    "addresses",
+			Usage:   "Comma separated list of addresses to be extracted.",
+			Value:   "",
+			EnvVars: []string{"VISOR_WALK_ADDRESSES"},
+		},
+		&cli.StringFlag{
 			Name:   "csv",
 			Usage:  "Path to write csv files.",
 			Hidden: true,
@@ -56,6 +62,7 @@ func walk(cctx *cli.Context) error {
 	}
 
 	tasks := strings.Split(cctx.String("tasks"), ",")
+	addresses := strings.Split(cctx.String("addresses"), ",")
 
 	if err := setupLogging(cctx); err != nil {
 		return xerrors.Errorf("setup logging: %w", err)
@@ -100,7 +107,8 @@ func walk(cctx *cli.Context) error {
 
 	scheduler := schedule.NewScheduler(cctx.Duration("task-delay"))
 
-	tsIndexer, err := chain.NewTipSetIndexer(lensOpener, strg, 0, cctx.String("name"), tasks)
+	tsIndexer, err := chain.NewTipSetIndexer(lensOpener, strg, 0, cctx.String("name"), tasks,
+		chain.AddressFilterOpt(chain.NewAddressFilter(addresses)))
 	if err != nil {
 		return xerrors.Errorf("setup indexer: %w", err)
 	}
