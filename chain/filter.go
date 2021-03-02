@@ -1,13 +1,18 @@
 package chain
 
-func NewAddressFilter(addr string) *AddressFilter {
+func NewAddressFilter(addr []string) *AddressFilter {
 	return &AddressFilter{address: addr}
 }
 
 type AddressFilter struct {
-	address string
+	address []string
 }
 
 func (f *AddressFilter) Allow(addr string) bool {
-	return f.address == addr
+	for _, address := range f.address {
+		if address == addr {
+			return true
+		}
+	}
+	return false
 }

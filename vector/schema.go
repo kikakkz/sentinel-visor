@@ -50,7 +50,7 @@ type Parameters struct {
 	From          int64    `json:"from"`
 	To            int64    `json:"to"`
 	Tasks         []string `json:"tasks"`
-	AddressFilter string   `json:"address-filter"`
+	AddressFilter []string `json:"address-filter"`
 }
 
 type BuilderExpected struct {

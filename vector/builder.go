@@ -44,7 +44,7 @@ type Builder struct {
 	From          int64
 	To            int64
 	Tasks         []string
-	AddressFilter string
+	AddressFilter []string
 	Description   string
 
 	storage *storage.MemStorage
@@ -69,7 +69,7 @@ func NewBuilder(cctx *cli.Context) (*Builder, error) {
 		From:          from,
 		To:            to,
 		Tasks:         strings.Split(cctx.String("tasks"), ","),
-		AddressFilter: cctx.String("actor-address"),
+		AddressFilter: strings.Split(cctx.String("actor-address"), ","),
 		Description:   cctx.String("vector-desc"),
 		storage:       storage.NewMemStorage(),
 		opener:        lensOpener,
