@@ -143,6 +143,10 @@ func NewTipSetIndexer(o lens.APIOpener, d model.Storage, window time.Duration, n
 	return tsi, nil
 }
 
+func (t *TipSetIndexer) SetAddressFilter(f *AddressFilter) {
+	t.addressFilter = f
+}
+
 // TipSet is called when a new tipset has been discovered
 func (t *TipSetIndexer) TipSet(ctx context.Context, ts *types.TipSet) error {
 	ctx, _ = tag.New(ctx, tag.Upsert(metrics.Name, t.name))

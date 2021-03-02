@@ -14,6 +14,10 @@ import (
 	"github.com/filecoin-project/sentinel-visor/chain"
 	"github.com/filecoin-project/sentinel-visor/model"
 	"github.com/filecoin-project/sentinel-visor/storage"
+
+	"encoding/json"
+	"github.com/fsnotify/fsnotify"
+	"io/ioutil"
 )
 
 var Watch = &cli.Command{
@@ -32,12 +36,18 @@ var Watch = &cli.Command{
 			Value:   strings.Join([]string{chain.BlocksTask, chain.MessagesTask, chain.ChainEconomicsTask, chain.ActorStatesRawTask}, ","),
 			EnvVars: []string{"VISOR_WATCH_TASKS"},
 		},
+		&cli.StringFlag{
+			Name:  "config-file",
+			Usage: "Config file of visor",
+			Value: "./visor.conf",
+		},
 	},
 	Action: watch,
 }
 
 func watch(cctx *cli.Context) error {
 	tasks := strings.Split(cctx.String("tasks"), ",")
+	configFile := cctx.String("config-file")
 
 	if err := setupLogging(cctx); err != nil {
 		return xerrors.Errorf("setup logging: %w", err)
@@ -76,6 +86,38 @@ func watch(cctx *cli.Context) error {
 	if err != nil {
 		return xerrors.Errorf("setup indexer: %w", err)
 	}
+
+	watcher, err := fsnotify.NewWatcher()
+	if err != nil {
+		return xerrors.Errorf("create file watcher: %w", err)
+	}
+	defer watcher.Close()
+
+	err = watcher.Add(configFile)
+	if err != nil {
+		return xerrors.Errorf("add file watcher: %v, %w", configFile, err)
+	}
+
+	go func() {
+		for {
+			select {
+			case ev := <-watcher.Events:
+				if ev.Op&fsnotify.Write == fsnotify.Write {
+					buf, err := ioutil.ReadFile(configFile)
+					filter := struct {
+						AddressesFilter []string `json:"addresses_filter"`
+					}{}
+					err = json.Unmarshal(buf, &filter)
+					if err != nil {
+						continue
+					}
+					tsIndexer.SetAddressFilter(chain.NewAddressFilter(filter.AddressesFilter))
+				}
+			case <-watcher.Errors:
+				return
+			}
+		}
+	}()
 
 	scheduler := schedule.NewScheduler(cctx.Duration("task-delay"))
 	scheduler.Add(schedule.TaskConfig{

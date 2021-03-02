@@ -67,7 +67,7 @@ lint:
 .PHONY: visor
 visor:
 	rm -f visor
-	go build $(GOFLAGS) -o visor -mod=readonly .
+	go build $(GOFLAGS) -o visor .
 
 BINS+=visor
 
