@@ -87,53 +87,49 @@ func watch(cctx *cli.Context) error {
 		return xerrors.Errorf("setup indexer: %w", err)
 	}
 
-	watcher, err := fsnotify.NewWatcher()
-	if err != nil {
-		return xerrors.Errorf("create file watcher: %w", err)
-	}
-	defer watcher.Close()
+	go func() {
+		watcher, err := fsnotify.NewWatcher()
+		if err != nil {
+			return
+		}
 
-	err = watcher.Add(configFile)
-	if err != nil {
-		return xerrors.Errorf("add file watcher: %v, %w", configFile, err)
-	}
+		err = watcher.Add(configFile)
+		if err != nil {
+			return
+		}
 
-	buf, err := ioutil.ReadFile(configFile)
-	if err == nil {
-		filter := struct {
-			AddressesFilter []string `json:"addresses_filter"`
-		}{}
-		err = json.Unmarshal(buf, &filter)
-		if err == nil {
+		updater := func() {
+			buf, err := ioutil.ReadFile(configFile)
+			if err != nil {
+				log.Errorf("cannot read %v [%v]", configFile, err)
+				return
+			}
+			filter := struct {
+				AddressesFilter []string `json:"addresses_filter"`
+			}{}
+			err = json.Unmarshal(buf, &filter)
+			if err != nil {
+				log.Errorf("cannot parse file %v [%v]", configFile, err)
+			}
 			log.Infof("add filter to indexer: %v", filter.AddressesFilter)
 			tsIndexer.SetAddressFilter(chain.NewAddressFilter(filter.AddressesFilter))
-		} else {
-			log.Errorf("cannot parse file %v [%v]", configFile, err)
 		}
-	}
 
-	go func() {
+		updater()
+
+		defer watcher.Close()
 		for {
 			select {
-			case ev := <-watcher.Events:
-				if ev.Op&fsnotify.Write == fsnotify.Write {
-					buf, err := ioutil.ReadFile(configFile)
-					if err != nil {
-						continue
-					}
-					log.Infof("watcher config file %v: %v", configFile, buf)
-					filter := struct {
-						AddressesFilter []string `json:"addresses_filter"`
-					}{}
-					err = json.Unmarshal(buf, &filter)
-					if err != nil {
-						log.Errorf("cannot parse file %v [%v]", configFile, err)
-						continue
-					}
-					log.Infof("add filter to indexer: %v", filter.AddressesFilter)
-					tsIndexer.SetAddressFilter(chain.NewAddressFilter(filter.AddressesFilter))
+			case ev, ok := <-watcher.Events:
+				if !ok {
+					log.Errorf("cannot watch file %v", configFile)
+					return
 				}
-			case <-watcher.Errors:
+				if ev.Op&fsnotify.Write == fsnotify.Write {
+					updater()
+				}
+			case ev := <-watcher.Errors:
+				log.Errorf("error watch file %v [%v]", configFile, ev)
 				return
 			}
 		}
