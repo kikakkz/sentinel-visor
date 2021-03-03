@@ -127,8 +127,10 @@ func watch(cctx *cli.Context) error {
 					}{}
 					err = json.Unmarshal(buf, &filter)
 					if err != nil {
+						log.Errorf("cannot parse file %v [%v]", configFile, err)
 						continue
 					}
+					log.Infof("add filter to indexer: %v", filter.AddressesFilter)
 					tsIndexer.SetAddressFilter(chain.NewAddressFilter(filter.AddressesFilter))
 				}
 			case <-watcher.Errors:
