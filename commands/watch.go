@@ -98,12 +98,30 @@ func watch(cctx *cli.Context) error {
 		return xerrors.Errorf("add file watcher: %v, %w", configFile, err)
 	}
 
+	buf, err := ioutil.ReadFile(configFile)
+	if err == nil {
+		filter := struct {
+			AddressesFilter []string `json:"addresses_filter"`
+		}{}
+		err = json.Unmarshal(buf, &filter)
+		if err == nil {
+			log.Infof("add filter to indexer: %v", filter.AddressesFilter)
+			tsIndexer.SetAddressFilter(chain.NewAddressFilter(filter.AddressesFilter))
+		} else {
+			log.Errorf("cannot parse file %v [%v]", configFile, err)
+		}
+	}
+
 	go func() {
 		for {
 			select {
 			case ev := <-watcher.Events:
 				if ev.Op&fsnotify.Write == fsnotify.Write {
 					buf, err := ioutil.ReadFile(configFile)
+					if err != nil {
+						continue
+					}
+					log.Infof("watcher config file %v: %v", configFile, buf)
 					filter := struct {
 						AddressesFilter []string `json:"addresses_filter"`
 					}{}
