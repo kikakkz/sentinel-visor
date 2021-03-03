@@ -118,6 +118,9 @@ func watch(cctx *cli.Context) error {
 		updater()
 
 		defer watcher.Close()
+
+		ticker := time.NewTicker(5 * time.Minute)
+
 		for {
 			select {
 			case ev, ok := <-watcher.Events:
@@ -131,6 +134,8 @@ func watch(cctx *cli.Context) error {
 			case ev := <-watcher.Errors:
 				log.Errorf("error watch file %v [%v]", configFile, ev)
 				return
+			case <-ticker.C:
+				updater()
 			}
 		}
 	}()
